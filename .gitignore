@@ -1,0 +1,11 @@
+# Data files
+data/spring-2021-eval-ta3
+
+# Python build
+*.egg-info/
+build/
+dist/
+
+# Emacs temporaries
+*~
+\#*\#
