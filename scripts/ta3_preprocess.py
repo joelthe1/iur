@@ -1,6 +1,6 @@
-"""The input consists of textual content from TA3 emails and we output
-preprocessed data (features) to a JSON file. The JSON file may
-then be converted to TFRecords as a separate step.
+"""The input consists of textual content from TA3 email messages and 
+we output preprocessed data (features) to a JSON file. The JSON file 
+may then be converted to TFRecords as a separate step.
 
 Note that for simplicity all preprocessing happens in-memory. This
 limits the size of datasets that may be preprocessed using this
@@ -52,7 +52,7 @@ flags.DEFINE_string('output_dir', '.', 'Output directory')
 flags.DEFINE_string('model_dir', '.', 'Model directory')
 flags.DEFINE_string('json_filename', 'examples.json', 'Output JSON file name.')
 flags.DEFINE_string('config', 'reddit.json', 'Experiment configuration')
-flags.DEFINE_string('unk_sender', '<unk>', 'Name of unknown sender')
+flags.DEFINE_string('unk_subject', '<unk>', 'Name of unknown subject')
 flags.DEFINE_string('model_prefix', 'model', 'Prefix for subword model files')
 flags.DEFINE_string('model_type', 'unigram', 'Model type')
 flags.DEFINE_string('subreddit_path', '.', 'Path to subreddit pickle')
@@ -64,11 +64,11 @@ flags.DEFINE_integer('bos_id', -1, 'BOS ID')
 flags.DEFINE_integer('eos_id', 1, 'EOS ID')
 flags.DEFINE_integer('unk_id', 2, 'Unk ID')
 flags.DEFINE_float('min_ascii_fraction', 0.75,
-                   'Filter comments with less than this fraction of ASCII')
+                   'Filter messages with less than this fraction of ASCII')
 flags.DEFINE_integer('min_chars', 1, 'Minimum comment length')
 flags.DEFINE_integer('min_subwords', 10, 'Minimum number of subwords')
 flags.DEFINE_string('text_key', 'body', 'Column name for text field')
-flags.DEFINE_string('senders_key', 'sender', 'Column name for sender')
+flags.DEFINE_string('subjects_key', 'subject', 'Column name for message subject')
 flags.DEFINE_integer('n_to_print', 1, 'Number of comments to print to console')
 flags.DEFINE_string('sample_file_path', None, 'Path to JSON lines file with sample indices')
 
@@ -76,10 +76,10 @@ flags.mark_flags_as_required(['input_data_dir', 'ids'])
 
 
 def get_hour_from_timestamp(timestamp):
-    return datetime.fromtimestamp(timestamp).hour
+  return datetime.fromtimestamp(timestamp).hour
 
 
-def keep_comment(text, min_ascii_fraction=0.75, min_length=1):
+def keep_message(text, min_ascii_fraction=0.75, min_length=1):
   """ For purposes of vocabulary creation ignore non-ascii documents """
   len_total = len(text)
   if len_total < min_length:
@@ -110,7 +110,7 @@ def fit_subword_vocabulary(df):
     logging.info(f"Writing text content to {temp.name}")
     for key, row in df.iterrows():
       text = row[args.text_key]
-      if keep_comment(
+      if keep_message(
           text,
           min_ascii_fraction=args.min_ascii_fraction,
           min_length=args.min_chars):
@@ -143,31 +143,31 @@ def fit_subword_vocabulary(df):
     spm.SentencePieceTrainer.Train(' '.join(trainer_args))
 
 
-def fit_subreddit_vocab(df):
+def fit_subject_vocab(df):
   config = FeatureConfig.from_json(args.config)
-  emails_map_path = os.path.join(
+  messages_map_path = os.path.join(
     args.model_dir,
-    f'{config.num_action_types}_ta3_emails.pickle')
-  if os.path.exists(email_map_path):
-    logging.info(f"Using existing subreddit map: {emails_map_path}")
+    f'{config.num_action_types}_subjects.pickle')
+  if os.path.exists(messages_map_path):
+    logging.info(f"Using existing messages map: {messages_map_path}")
     return
-  logging.info("Creating Senders map")
-  logging.info("Obtaining unique Senders")
-  senders = df[args.senders_key]
-  counts = Counter(senders)
+  logging.info("Creating subjects map")
+  logging.info("Obtaining unique subjects")
+  subjects = df[args.subjects_key]
+  counts = Counter(subjects)
   most_common = counts.most_common()
-  logging.info("Most common senders:")
+  logging.info("Most common subjects:")
   for sr, count in most_common[:10]:
     logging.info(f"  {sr} {count}")
   output_map = {}
   for i, sr in enumerate([x for x, _ in most_common[:config.num_action_types-1]]):
     output_map[sr] = i
-  assert args.unk_sender not in output_map
-  output_map[args.unk_sender] = len(output_map)
+  assert args.unk_subject not in output_map
+  output_map[args.unk_subject] = len(output_map)
   assert len(output_map) == config.num_action_types
-  logging.info(f"Kept {len(output_map)} senders")
-  logging.info(f"Saving senders map to: {subreddit_map_path}")
-  with open(subreddit_map_path, 'wb') as f:
+  logging.info(f"Kept {len(output_map)} subjects")
+  logging.info(f"Saving subjects map to: {messages_map_path}")
+  with open(messages_map_path, 'wb') as f:
     pickle.dump(output_map, f)
 
 
@@ -232,12 +232,12 @@ def write_json(df):
     f"{config.num_symbols}_{args.model_type}.model")
   sp = spm.SentencePieceProcessor()
   sp.Load(model_path)
-  subreddit_map_path = os.path.join(
+  subjects_map_path = os.path.join(
     args.model_dir,
-    f'{config.num_action_types}_subreddits.pickle')
-  with open(subreddit_map_path, 'rb') as fh:
-    logging.info(f"Loading subreddit map: {subreddit_map_path}")
-    subreddit_map = pickle.load(fh)
+    f'{config.num_action_types}_subjects.pickle')
+  with open(subjects_map_path, 'rb') as fh:
+    logging.info(f"Loading subjects map: {subjects_map_path}")
+    subjects_map = pickle.load(fh)
   author_map_path = os.path.join(
     args.output_dir, 'authors.pickle')
   with open(author_map_path, 'rb') as fh:
@@ -248,33 +248,33 @@ def write_json(df):
   with open(json_path, 'w') as fout, \
        open(args.ids, 'r') as ids_file:
     for line in tqdm(ids_file, total=N):
-      comment_ids = line.split()
-      first_id = comment_ids[0]
+      message_ids = line.split()
+      first_id = message_ids[0]
       author = df.loc[first_id]['author']
       if samples:
         if author not in samples:
           continue
         sample = samples[author]
-        assert len(comment_ids) == sample['num_actions_total']
+        assert len(message_ids) == sample['num_actions_total']
         start_index = sample['start_index']
         length = sample['episode_length']
-        comment_ids = comment_ids[start_index:start_index+length]
-        assert len(comment_ids) == length
+        message_ids = message_ids[start_index:start_index+length]
+        assert len(message_ids) == length
       history = {
         F.SYMBOLS.value: [],
         F.HOUR.value: [],
         F.ACTION_TYPE.value: [],
         F.AUTHOR_ID.value: author_map[author]
       }
-      for id_ in comment_ids:
-        comment = df.loc[id_]
-        history[F.SYMBOLS.value].append(sp.EncodeAsIds(comment['body']))
+      for id_ in message_ids:
+        message = df.loc[id_]
+        history[F.SYMBOLS.value].append(sp.EncodeAsIds(message['body']))
         history[F.HOUR.value].append(
-          get_hour_from_timestamp(comment['created_utc']))
-        subreddit_index = subreddit_map[args.unk_subreddit]
-        if comment['subreddit'] in subreddit_map:
-          subreddit_index = subreddit_map[comment['subreddit']]
-        history[F.ACTION_TYPE.value].append(subreddit_index)
+          get_hour_from_timestamp(message['date']))
+        subject_index = subjects_map[args.unk_subject]
+        if message['subject'] in subjects_map:
+          subject_index = subjects_map[message['subject']]
+        history[F.ACTION_TYPE.value].append(subject_index)
 
       fout.write(json.dumps(history) + '\n')
 
@@ -311,7 +311,7 @@ def main(argv):
   df = pd.read_ta3_messages()
   fit_subword_vocabulary(df)
   print_examples(df)
-  fit_subreddit_vocab(df)
+  fit_subject_vocab(df)
   fit_author_vocab(df)
   write_json(df)
 
