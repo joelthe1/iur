@@ -38,6 +38,8 @@ from email import (
     policy,
     message_from_file
 )
+from email.utils import parsedate_to_datetime
+from pytz import timezone, utc
 
 from aid.features import F
 from aid.features import FeatureConfig
@@ -296,13 +298,36 @@ def read_ta3_messages():
       for idx, line in enumerate(content):
         if idx < num_headers:
           header_name, header_value = [part.strip() for part in line.strip().split(':', 1)]
-          data[header_name].append(header_value)
+          data[header_name.lower()].append(header_value)
 
       # Remove headers from the rest of the content
       content = ''.join(content[num_headers:]
       data['content'].append(content)
 
   return pd.DataFrame(data)
+
+
+def create_sender_history(df):
+  '''Read the DataFrame and create the history'''
+  history = {}
+  for sender, split in df.groupby('sender'):
+    for idx, row in split.iterrows():
+     time_sent = parsedate_to_datetime(row['date'])
+     if not time_sent.time().tzinfo:
+       time_sent.replace(tzinfo=utc)
+
+     if sender not in history:
+       history[sender] = [(idx, time_sent)]
+     else:
+       history[sender].append((idx, time_sent))
+    
+  with open(args.ids, 'w') as history_file:
+    for sender, sent_times in history.items():
+      sorted_idx = []
+      for entry in sorted(sent_times, key=itemgetter(1)):
+        sorted_idx.append(entry[0])
+
+      history_file.write(' '.join(sorted_idx) + '\n')
 
 
 def main(argv):
