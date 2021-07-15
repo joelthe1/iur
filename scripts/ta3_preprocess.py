@@ -13,6 +13,7 @@ from __future__ import division
 from __future__ import print_function
 
 from datetime import datetime
+from operator import itemgetter
 import os
 import pickle
 import tempfile
@@ -52,6 +53,7 @@ flags.DEFINE_string('input_dir', None, 'Path to directory with email content')
 flags.DEFINE_string('ids', None, 'Path to user history file')
 flags.DEFINE_string('output_dir', '.', 'Output directory')
 flags.DEFINE_string('model_dir', '.', 'Model directory')
+flags.DEFINE_integer('num_headers', 0, 'Number of header lines to extract in the message text')
 flags.DEFINE_string('json_filename', 'examples.json', 'Output JSON file name.')
 flags.DEFINE_string('config', 'reddit.json', 'Experiment configuration')
 flags.DEFINE_string('unk_subject', '<unk>', 'Name of unknown subject')
@@ -59,7 +61,7 @@ flags.DEFINE_string('model_prefix', 'model', 'Prefix for subword model files')
 flags.DEFINE_string('model_type', 'unigram', 'Model type')
 flags.DEFINE_string('subreddit_path', '.', 'Path to subreddit pickle')
 flags.DEFINE_float('character_coverage', 1.0, 'Character coverage')
-flags.DEFINE_integer('input_sentence_size', 1000000,
+flags.DEFINE_integer('input_sentence_size', 1000,
                      'Number of sentences used to fit subword model')
 flags.DEFINE_integer('pad_id', 0, 'Padding ID')
 flags.DEFINE_integer('bos_id', -1, 'BOS ID')
@@ -74,11 +76,15 @@ flags.DEFINE_string('subjects_key', 'subject', 'Column name for message subject'
 flags.DEFINE_integer('n_to_print', 1, 'Number of comments to print to console')
 flags.DEFINE_string('sample_file_path', None, 'Path to JSON lines file with sample indices')
 
-flags.mark_flags_as_required(['input_data_dir', 'ids'])
+flags.mark_flags_as_required(['input_dir', 'ids'])
 
 
 def get_hour_from_timestamp(timestamp):
-  return datetime.fromtimestamp(timestamp).hour
+  timestamp = parsedate_to_datetime(timestamp)
+  if not timestamp.time().tzinfo:
+    timestamp.replace(tzinfo=utc)
+
+  return timestamp.hour
 
 
 def keep_message(text, min_ascii_fraction=0.75, min_length=1):
@@ -132,6 +138,7 @@ def fit_subword_vocabulary(df):
       f'--input={temp.name}',
       f'--model_prefix={model_prefix}',
       f'--vocab_size={config.num_symbols}',
+      f'--hard_vocab_limit=false',
       f'--model_type={args.model_type}',
       f'--character_coverage={args.character_coverage}',
       f'--input_sentence_size={args.input_sentence_size}',
@@ -181,7 +188,7 @@ def fit_author_vocab(df):
     logging.info(f"Using existing author map: {author_map_path}")
     return
   author_map = {}
-  for i, a in enumerate(set(df['author'])):
+  for i, a in enumerate(set(df['from'])):
     author_map[a] = i
   logging.info(f"{len(author_map)} authors")
   with open(author_map_path, 'wb') as f:
@@ -217,7 +224,7 @@ def maybe_load_sample_file():
   with open(args.sample_file_path) as fh:
     for line in fh:
       sample = json.loads(line)
-      samples[sample['author']] = sample
+      samples[sample['from']] = sample
   assert samples
   return samples
 
@@ -251,8 +258,8 @@ def write_json(df):
        open(args.ids, 'r') as ids_file:
     for line in tqdm(ids_file, total=N):
       message_ids = line.split()
-      first_id = message_ids[0]
-      author = df.loc[first_id]['author']
+      first_id = int(message_ids[0])
+      author = df.loc[first_id]['from']
       if samples:
         if author not in samples:
           continue
@@ -269,8 +276,9 @@ def write_json(df):
         F.AUTHOR_ID.value: author_map[author]
       }
       for id_ in message_ids:
+        id_ = int(id_)
         message = df.loc[id_]
-        history[F.SYMBOLS.value].append(sp.EncodeAsIds(message['body']))
+        history[F.SYMBOLS.value].append(sp.EncodeAsIds(message[args.text_key]))
         history[F.HOUR.value].append(
           get_hour_from_timestamp(message['date']))
         subject_index = subjects_map[args.unk_subject]
@@ -283,7 +291,7 @@ def write_json(df):
 def read_ta3_messages():
   '''Read in the TA3 messages and return it as a DataFrame'''
   data = defaultdict(list)
-  for root, dirs, files in os.walk(args.input_data_dir):
+  for root, dirs, files in os.walk(args.input_dir):
     for file in files:
       if not file.endswith('.txt'):
         continue
@@ -291,18 +299,15 @@ def read_ta3_messages():
       with open(os.path.join(root, file)) as f:
         content = f.readlines()
 
-      # Read the headers in the
-      # file. Currently assuming
-      # there are always two headers.
-      num_headers = 2
+      # Read the headers in the file
       for idx, line in enumerate(content):
-        if idx < num_headers:
+        if idx < args.num_headers:
           header_name, header_value = [part.strip() for part in line.strip().split(':', 1)]
           data[header_name.lower()].append(header_value)
 
       # Remove headers from the rest of the content
-      content = ''.join(content[num_headers:]
-      data['content'].append(content)
+      content = ''.join(content[args.num_headers:])
+      data[args.text_key].append(content)
 
   return pd.DataFrame(data)
 
@@ -310,16 +315,16 @@ def read_ta3_messages():
 def create_sender_history(df):
   '''Read the DataFrame and create the history'''
   history = {}
-  for sender, split in df.groupby('sender'):
+  for sender, split in df.groupby('from'):
     for idx, row in split.iterrows():
-     time_sent = parsedate_to_datetime(row['date'])
-     if not time_sent.time().tzinfo:
-       time_sent.replace(tzinfo=utc)
+      time_sent = parsedate_to_datetime(row['date'])
+      if not time_sent.time().tzinfo:
+        time_sent.replace(tzinfo=utc)
 
-     if sender not in history:
-       history[sender] = [(idx, time_sent)]
-     else:
-       history[sender].append((idx, time_sent))
+      if sender not in history:
+        history[sender] = [(idx, time_sent)]
+      else:
+        history[sender].append((idx, time_sent))
     
   with open(args.ids, 'w') as history_file:
     for sender, sent_times in history.items():
@@ -327,13 +332,15 @@ def create_sender_history(df):
       for entry in sorted(sent_times, key=itemgetter(1)):
         sorted_idx.append(entry[0])
 
-      history_file.write(' '.join(sorted_idx) + '\n')
+      history_file.write(' '.join([str(num) for num in sorted_idx]) + '\n')
 
 
 def main(argv):
   logging.info(f"Output directory: {args.output_dir}")
   os.makedirs(args.output_dir, exist_ok=True)
-  df = pd.read_ta3_messages()
+  df = read_ta3_messages()
+  print(df)
+  create_sender_history(df);
   fit_subword_vocabulary(df)
   print_examples(df)
   fit_subject_vocab(df)
