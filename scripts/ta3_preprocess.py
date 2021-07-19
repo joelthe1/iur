@@ -49,7 +49,7 @@ from aid.features import write_tfrecords_from_generator
 args = flags.FLAGS
 
 flags.DEFINE_string('input_dir', None, 'Path to directory with email content')
-#flags.DEFINE_string('df', None, 'Path to pickled DataFrame')
+flags.DEFINE_string('df', None, 'Path to pickled DataFrame. Uses it if it exists, else creates and saves on here from the data in the `input_dir`.')
 flags.DEFINE_string('ids', None, 'Path to user history file')
 flags.DEFINE_string('output_dir', '.', 'Output directory')
 flags.DEFINE_string('model_dir', '.', 'Model directory')
@@ -76,7 +76,7 @@ flags.DEFINE_string('subjects_key', 'subject', 'Column name for message subject'
 flags.DEFINE_integer('n_to_print', 1, 'Number of comments to print to console')
 flags.DEFINE_string('sample_file_path', None, 'Path to JSON lines file with sample indices')
 
-flags.mark_flags_as_required(['input_dir', 'ids'])
+flags.mark_flags_as_required(['input_dir', 'df', 'ids'])
 
 
 def get_hour_from_timestamp(timestamp):
@@ -154,11 +154,11 @@ def fit_subword_vocabulary(df):
 
 def fit_subject_vocab(df):
   config = FeatureConfig.from_json(args.config)
-  messages_map_path = os.path.join(
+  message_subject_map_path = os.path.join(
     args.model_dir,
     f'{config.num_action_types}_subjects.pickle')
-  if os.path.exists(messages_map_path):
-    logging.info(f"Using existing messages map: {messages_map_path}")
+  if os.path.exists(message_subject_map_path):
+    logging.info(f"Using existing messages map: {message_subject_map_path}")
     return
   logging.info("Creating subjects map")
   logging.info("Obtaining unique subjects")
@@ -175,8 +175,8 @@ def fit_subject_vocab(df):
   output_map[args.unk_subject] = len(output_map)
   assert len(output_map) == config.num_action_types
   logging.info(f"Kept {len(output_map)} subjects")
-  logging.info(f"Saving subjects map to: {messages_map_path}")
-  with open(messages_map_path, 'wb') as f:
+  logging.info(f"Saving subjects map to: {message_subject_map_path}")
+  with open(message_subject_map_path, 'wb') as f:
     pickle.dump(output_map, f)
 
 
@@ -303,13 +303,14 @@ def read_ta3_messages():
       for idx, line in enumerate(content):
         if idx < args.num_headers:
           header_name, header_value = [part.strip() for part in line.strip().split(':', 1)]
-          data[header_name.lower()].append(header_value)
+          data[header_name.strip().lower()].append(header_value.strip())
 
       # Remove headers from the rest of the content
       content = ''.join(content[args.num_headers:])
       data[args.text_key].append(content)
-
-  return pd.DataFrame(data)
+  
+  # Expecing this sort to be consistent across runs
+  return pd.DataFrame(data).sort_values(by=['date', 'from']).reset_index(drop=True)
 
 
 def create_sender_history(df):
@@ -338,9 +339,27 @@ def create_sender_history(df):
 def main(argv):
   logging.info(f"Output directory: {args.output_dir}")
   os.makedirs(args.output_dir, exist_ok=True)
-  df = read_ta3_messages()
-  print(df)
-  create_sender_history(df);
+
+  # If `df` given, then use it
+  # else create from `input_dir`
+  if not os.path.exists(args.df):
+    logging.info(f"Did not find an existing pickled DataFrame file. Creating one at {args.df}")    
+    df = read_ta3_messages()
+    df.to_pickle(args.df)
+  else:
+    logging.info(f"Using existing pickled DataFrame file found at {args.df}")
+    df = pd.read_pickle(args.df)
+
+  logging.info(df)
+  
+  # Use existing history file 
+  # if it exists, else create one
+  if not os.path.exists(args.ids):
+    logging.info(f"Did not find existing history file. Creating one at {args.ids}")    
+    create_sender_history(df);
+  else:
+    logging.info(f"Using existing history file found at {args.ids}")
+
   fit_subword_vocabulary(df)
   print_examples(df)
   fit_subject_vocab(df)

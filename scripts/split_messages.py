@@ -15,35 +15,9 @@ from absl import app
 
 args = flags.FLAGS
 
-flags.DEFINE_string('input_dir', None, 'Path to directory with email content')
-flags.DEFINE_integer('num_headers', 0, 'Number of header lines to extract in the message text')
+flags.DEFINE_string('df', None, 'Path to pickled DataFrame')
 flags.DEFINE_string('output_prefix', '.', 'Prefix to use for the split out ID files')
-flags.DEFINE_string('text_key', 'body', 'Column name for text field')
-flags.mark_flags_as_required(['input_dir'])
-
-def read_ta3_messages():
-  '''Read in the TA3 messages and return it as a DataFrame'''
-  data = defaultdict(list)
-  for root, dirs, files in os.walk(args.input_dir):
-    for file in files:
-      if not file.endswith('.txt'):
-        continue
-      
-      with open(os.path.join(root, file)) as f:
-        content = f.readlines()
-
-      # Read the headers in the file
-      for idx, line in enumerate(content):
-        if idx < args.num_headers:
-          header_name, header_value = [part.strip() for part in line.strip().split(':', 1)]
-          data[header_name.lower()].append(header_value)
-
-      # Remove headers from the rest of the content
-      content = ''.join(content[args.num_headers:])
-      data[args.text_key].append(content)
-
-  return pd.DataFrame(data)
-
+flags.mark_flags_as_required(['df'])
 
 def create_sender_history(df, num_splits=2):
   '''Read the DataFrame and create the history'''
@@ -90,8 +64,14 @@ def create_sender_history(df, num_splits=2):
 
 def main(argv):
   logging.info("Starting to split out IDs...")
-  #os.makedirs(args.output_dir, exist_ok=True)
-  df = read_ta3_messages()
+
+  if not os.path.exists(args.df):
+    logging.info(f"Did not find an existing pickled DataFrame file at {args.df}")    
+    exit(1)
+  
+  logging.info(f"Reading pickled DataFrame file found at {args.df}")
+  df = pd.read_pickle(args.df)
+
   create_sender_history(df)
   logging.info(f"Done. See files {args.output_prefix}_0.ids and {args.output_prefix}_1.ids")
 
