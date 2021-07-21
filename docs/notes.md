@@ -11,7 +11,7 @@ python scripts/ta3_preprocess.py --input_dir data/sender-based-ta3-subject-weeks
 
 - Split out messages IDs by date sent. This is for creating queries and target datasets.
 ```sh
-python scripts/split_messages.py --df data/sender-based-ta3-subject-weeks1-13-df-pickle.zip --output_prefix data/output/sender_history_split
+python scripts/split_messages.py --df data/sender-based-ta3-subject-weeks1-13-df-pickle.zip --min_episode_length 16 --output_prefix data/output/sender_history_split
 ```
 
 - Convert the query and target IDs related data to JSON
@@ -30,4 +30,9 @@ python scripts/json2tf.py --json data/output/ta3_json/queries/examples.json --tf
 
 # For targets
 python scripts/json2tf.py --json data/output/ta3_json/targets/examples.json --tf data/output/ta3_tf/targets --config data/sender-based-ta3-subject-weeks1-13/config.json  --shard_size 5000 --max_length 32
+```
+
+- Run `rank`
+```sh
+python 
 ```
