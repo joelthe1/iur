@@ -15,12 +15,13 @@ python scripts/split_messages.py --df data/sender-based-ta3-subject-weeks1-13-df
 ```
 
 - Convert the query and target IDs related data to JSON
+  It is important to use the same author vocabulary across the two invocations here.
 ```sh
 # For queries
-python scripts/ta3_preprocess.py --input_dir data/sender-based-ta3-subject-weeks1-13 --num_headers 3 --df data/sender-based-ta3-subject-weeks1-13-df-pickle.zip --ids data/output/sender_history_split_0.ids --config data/sender-based-ta3-subject-weeks1-13/config.json --output_dir data/output/ta3_json/queries --model_dir data/reddit/pretrained/model
+python scripts/ta3_preprocess.py --input_dir data/sender-based-ta3-subject-weeks1-13 --num_headers 3 --df data/sender-based-ta3-subject-weeks1-13-df-pickle.zip --ids data/output/sender_history_split_0.ids --config data/sender-based-ta3-subject-weeks1-13/config.json --output_dir data/output/ta3_json/query-target --model_dir data/reddit/pretrained/model --json_filename queries.json
 
 # For targets
-python scripts/ta3_preprocess.py --input_dir data/sender-based-ta3-subject-weeks1-13 --num_headers 3 --df data/sender-based-ta3-subject-weeks1-13-df-pickle.zip --ids data/output/sender_history_split_1.ids --config data/sender-based-ta3-subject-weeks1-13/config.json --output_dir data/output/ta3_json/targets --model_dir data/reddit/pretrained/model
+python scripts/ta3_preprocess.py --input_dir data/sender-based-ta3-subject-weeks1-13 --num_headers 3 --df data/sender-based-ta3-subject-weeks1-13-df-pickle.zip --ids data/output/sender_history_split_1.ids --config data/sender-based-ta3-subject-weeks1-13/config.json --output_dir data/output/ta3_json/query-target --model_dir data/reddit/pretrained/model --json_filename targets.json
 ```
 
 - Convert the JSONs to TFRecords
