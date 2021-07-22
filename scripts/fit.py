@@ -51,7 +51,7 @@ flags.DEFINE_enum('mode', 'fit', ['fit', 'rank', 'embed'],
                    'a trained model'))
 flags.DEFINE_enum('framework', 'fit', ['fit', 'custom'], 'Framework')
 flags.DEFINE_string('expt_dir', None, 'Experiment directory')
-flags.DEFINE_string('results_filename', 'results.txt', 'Written as expt_dir/results_filename')
+flags.DEFINE_string('results_filename', 'results.txt', 'Written as expt_dir/results_filename. For `rank`, give full path')
 flags.DEFINE_integer('fit_verbosity', 1, 'Use `1` for local jobs and `2` for grid jobs')
 flags.DEFINE_integer('save_freq', 50000, 'Number of steps between checkpoints')
 flags.DEFINE_string('train_tfrecord_path', None, 'Path to train TFRecords')
@@ -480,7 +480,8 @@ def main(argv):
     logging.info(f"Loading embedding from {export_dir}")
     embedding = load_embedding(config, export_dir)
     metrics = rank(embedding, config)
-    results_file = os.path.join(FLAGS.expt_dir, FLAGS.results_filename)
+    #results_file = os.path.join(FLAGS.expt_dir, FLAGS.results_filename)
+    results_file = f'{FLAGS.results_filename}'
     logging.info(f"Results will be written to {results_file}")
     results = "\n".join([f"{k} {v}" for k, v in metrics.items()])
     logging.info(results)
