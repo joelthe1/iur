@@ -5,7 +5,7 @@ from datetime import datetime
 from operator import itemgetter
 
 from email.utils import parsedate_to_datetime
-from pytz import timezone, utc
+from pytz import utc
 
 import pandas as pd
 
@@ -28,9 +28,14 @@ def create_sender_history(df, num_splits=2):
   history = defaultdict(list)
   for sender, split in df.groupby('from'):
     for idx, row in split.iterrows():
-      time_sent = parsedate_to_datetime(row['date'])
-      if not time_sent.time().tzinfo:
-        time_sent.replace(tzinfo=utc)
+      try:
+        time_sent = parsedate_to_datetime(row['date'])
+        if not time_sent.tzinfo:
+          time_sent = time_sent.replace(tzinfo=utc)
+      except Exception:
+        # Skip messages with error
+        # while parsing date.
+        continue
 
       history[sender].append((idx, time_sent))
     
@@ -73,7 +78,7 @@ def main(argv):
   logging.info("Starting to split out IDs...")
 
   if not os.path.exists(args.df):
-    logging.info(f"Did not find an existing pickled DataFrame file at {args.df}")    
+    logging.info(f"Did not find an existing pickled DataFrame file at {args.df}")
     exit(1)
   
   logging.info(f"Reading pickled DataFrame file found at {args.df}")

@@ -1,4 +1,4 @@
-"""The input consists of textual content from TA3 email messages and 
+"""The input consists of textual content from email messages and 
 we output preprocessed data (features) to a JSON file. The JSON file 
 may then be converted to TFRecords as a separate step.
 
@@ -81,8 +81,8 @@ flags.mark_flags_as_required(['input_dir', 'df', 'ids'])
 
 def get_hour_from_timestamp(timestamp):
   timestamp = parsedate_to_datetime(timestamp)
-  if not timestamp.time().tzinfo:
-    timestamp.replace(tzinfo=utc)
+  if not timestamp.tzinfo:
+    timestamp = timestamp.replace(tzinfo=utc)
 
   return timestamp.hour
 
@@ -288,8 +288,8 @@ def write_json(df):
 
       fout.write(json.dumps(history) + '\n')
 
-def read_ta3_messages():
-  '''Read in the TA3 messages and return it as a DataFrame'''
+def read_email_messages():
+  '''Read in the email messages and return it as a DataFrame'''
   data = defaultdict(list)
   for root, dirs, files in os.walk(args.input_dir):
     for file in files:
@@ -315,17 +315,19 @@ def read_ta3_messages():
 
 def create_sender_history(df):
   '''Read the DataFrame and create the history'''
-  history = {}
+  history = defaultdict(list)
   for sender, split in df.groupby('from'):
     for idx, row in split.iterrows():
-      time_sent = parsedate_to_datetime(row['date'])
-      if not time_sent.time().tzinfo:
-        time_sent.replace(tzinfo=utc)
+      try:
+        time_sent = parsedate_to_datetime(row['date'])
+        if not time_sent.tzinfo:
+          time_sent = time_sent.replace(tzinfo=utc)
+      except Exception as e:
+        # Skip messages with error
+        # while parsing date
+        continue
 
-      if sender not in history:
-        history[sender] = [(idx, time_sent)]
-      else:
-        history[sender].append((idx, time_sent))
+      history[sender].append((idx, time_sent))
     
   with open(args.ids, 'w') as history_file:
     for sender, sent_times in history.items():
@@ -344,13 +346,13 @@ def main(argv):
   # else create from `input_dir`
   if not os.path.exists(args.df):
     logging.info(f"Did not find an existing pickled DataFrame file. Creating one at {args.df}")    
-    df = read_ta3_messages()
+    df = read_email_messages()
     df.to_pickle(args.df)
   else:
     logging.info(f"Using existing pickled DataFrame file found at {args.df}")
     df = pd.read_pickle(args.df)
 
-  logging.info(df)
+  logging.info(f'\n{df}')
   
   # Use existing history file 
   # if it exists, else create one
