@@ -21,9 +21,20 @@ def inspect_df():
   #     for query, target in zip(query_id_line.split(), target_id_line.split()):
   #       logging.info(f"{df.loc[int(query)]['from']} ******** {df.loc[int(query)]['from']}")
 
-  print(df[ (df['date'].isnull()) & (df['date']=='') ].index)
-    
+  #print(df[ (df['date'].isnull()) & (df['date']=='') ].index)
 
+  idxs = []
+
+  with open('data/ta3/sender_history_split_0.ids') as s0:
+    for line in s0:
+      idxs += [int(idx) for idx in line.strip().split()]
+
+  with open('data/ta3/sender_history_split_0.ids') as s1:
+    for line in s1:
+      idxs += [int(idx) for idx in line.strip().split()]
+  
+  new_df = df.iloc[idxs]
+  print(new_df['subject'].unique().shape)
 
 def main(argv):
   logging.info(f"Inspecting DF {args.df_path}")
