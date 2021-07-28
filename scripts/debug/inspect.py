@@ -7,7 +7,7 @@ from absl import app
 
 
 flags.DEFINE_string('df_path', None, 'Path to DataFrame')
-flags.mark_flags_as_required(['df_path'])
+#flags.mark_flags_as_required(['df_path'])
 
 args = flags.FLAGS
 
@@ -36,9 +36,22 @@ def inspect_df():
   new_df = df.iloc[idxs]
   print(new_df['subject'].unique().shape)
 
+
+def inspect_jsonl(jsonl_filename):
+  counter = 0
+  with open(jsonl_filename) as s0:
+    for line in s0:
+      if len(json.loads(line)['action_type']) < 16:
+        counter += 1
+        # print(len(json.loads(line)['action_type']))
+
+  print(counter)
+
 def main(argv):
-  logging.info(f"Inspecting DF {args.df_path}")
-  inspect_df()
+  #logging.info(f"Inspecting DF {args.df_path}")
+  inspect_jsonl('/usr/local/src/iur/data/avacado/avacado-dataset-split-0.jsonl')
+  inspect_jsonl('/usr/local/src/iur/data/avacado/avacado-dataset-split-1.jsonl')
+  #inspect_df()
 
 if __name__ == "__main__":
   app.run(main)

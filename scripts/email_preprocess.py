@@ -75,6 +75,7 @@ flags.DEFINE_string('text_key', 'body', 'Column name for text field')
 flags.DEFINE_string('subjects_key', 'subject', 'Column name for message subject')
 flags.DEFINE_integer('n_to_print', 1, 'Number of comments to print to console')
 flags.DEFINE_string('sample_file_path', None, 'Path to JSON lines file with sample indices')
+flags.DEFINE_integer('min_episode_length', 1, 'The minimum number of messages (aka episodes) present per author to be kept')
 
 flags.mark_flags_as_required(['input_dir', 'df', 'ids'])
 
@@ -329,13 +330,23 @@ def create_sender_history(df):
 
       history[sender].append((idx, time_sent))
     
+  skipped_authors_count = 0
   with open(args.ids, 'w') as history_file:
     for sender, sent_times in history.items():
+
+      # Only keep authors with `min_episode_length`
+      if len(sent_times) < args.min_episode_length:
+        skipped_authors_count += 1
+        continue
+
       sorted_idx = []
       for entry in sorted(sent_times, key=itemgetter(1)):
         sorted_idx.append(entry[0])
 
       history_file.write(' '.join([str(num) for num in sorted_idx]) + '\n')
+
+  if skipped_authors_count > 0:
+    logging.info(f'Skipped {skipped_authors_count} authors since not having at least {args.min_episode_length} messages sent by them')
 
 
 def main(argv):
