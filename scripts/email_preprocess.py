@@ -289,6 +289,7 @@ def write_json(df):
 
       fout.write(json.dumps(history) + '\n')
 
+
 def read_email_messages():
   '''Read in the email messages and return it as a DataFrame'''
   data = defaultdict(list)
@@ -309,9 +310,17 @@ def read_email_messages():
       # Remove headers from the rest of the content
       content = ''.join(content[args.num_headers:])
       data[args.text_key].append(content)
-  
-  # Expecing this sort to be consistent across runs
-  return pd.DataFrame(data).sort_values(by=['date', 'from']).reset_index(drop=True)
+
+  # Expecting this sort to be consistent across runs
+  new_df = pd.DataFrame(data).sort_values(by=['date', 'from']).reset_index(drop=True)
+
+  # lower-case and clean-up `Re:` in subject
+  if 'subject' in new_df.columns:
+    new_df['subject'] = new_df['subject'].str.lower()
+    new_df['subject'].replace(r'\bre\b:?', '', inplace=True, regex=True)
+    new_df['subject'] = new_df['subject'].str.strip()
+
+  return new_df
 
 
 def create_sender_history(df):
