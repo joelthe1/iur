@@ -46,7 +46,7 @@ python scripts/json2tf.py --json data/ta3/ta3-dataset-split-1.jsonl --tf data/ta
 ```
 ```sh
 # For queries
-python scripts/json2tf.py --json data/avacado/avacado-dataset-split-1.jsonl --tf data/avacado/split-0 --config data/avacado/from_text_3/config.json --shard_size 5000 --max_length 32
+python scripts/json2tf.py --json data/avacado/avacado-dataset-split-0.jsonl --tf data/avacado/split-0 --config data/avacado/from_text_3/config.json --shard_size 5000 --max_length 32
 
 # For targets
 python scripts/json2tf.py --json data/avacado/avacado-dataset-split-1.jsonl --tf data/avacado/split-1 --config data/avacado/from_text_3/config.json --shard_size 5000 --max_length 32
