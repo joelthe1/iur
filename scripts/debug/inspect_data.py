@@ -1,11 +1,14 @@
 import json
+import tqdm
 import pandas as pd
+
+from datetime import datetime
+from operator import itemgetter
 from collections import Counter
 
-from absl import logging
 from absl import flags
 from absl import app
-
+from absl import logging
 
 flags.DEFINE_string('df_path', None, 'Path to DataFrame')
 #flags.mark_flags_as_required(['df_path'])
@@ -15,28 +18,6 @@ args = flags.FLAGS
 def inspect_df():
   df = pd.read_pickle(args.df_path)
   logging.info(df)
-
-  # with open('/usr/local/src/iur/data/output/sender_history_split_0.ids') as ids_0, \
-  #      open('/usr/local/src/iur/data/output/sender_history_split_1.ids') as ids_1:
-  #   for query_id_line, target_id_line in zip(ids_0, ids_1):
-  #     for query, target in zip(query_id_line.split(), target_id_line.split()):
-  #       logging.info(f"{df.loc[int(query)]['from']} ******** {df.loc[int(query)]['from']}")
-
-  #print(df[ (df['date'].isnull()) & (df['date']=='') ].index)
-
-  idxs = []
-
-  with open('data/ta3/sender_history_split_0.ids') as s0:
-    for line in s0:
-      idxs += [int(idx) for idx in line.strip().split()]
-
-  with open('data/ta3/sender_history_split_0.ids') as s1:
-    for line in s1:
-      idxs += [int(idx) for idx in line.strip().split()]
-  
-  new_df = df.iloc[idxs]
-  print(new_df['subject'].unique().shape)
-
 
 def inspect_jsonl(jsonl_filename):
   counter = 0
@@ -55,7 +36,7 @@ def inspect_splits():
   # print(df.iloc[303744])
   # return
 
-  with open('data/avacado/exp_20210804_1/temp_0.ids') as s0, open('data/avacado/exp_20210804_1/temp_1.ids') as s1:
+  with open('data/avacado/exp_20210809_1/sender_history_split_0.ids') as s0, open('data/avacado/exp_20210809_1/sender_history_split_1.ids') as s1:
     counter = 0
     for line0, line1 in zip(s0, s1):
       counter += 1
@@ -70,7 +51,8 @@ def inspect_splits():
         from_set.add(df.iloc[int(s)]['from'])
         results2[df.iloc[int(s)]['subject']] += 1
 
-      if len(line0.split()) < 16 or len(line1.split()) < 16:
+      # if len(line0.split()) < 16 or len(line1.split()) < 16:
+      if counter == 1000:
         print(counter)
         print(from_set)
         print(results1)
@@ -79,12 +61,15 @@ def inspect_splits():
         break
 
       assert len(from_set) == 1, f'Error in grouping {from_set}'
+      assert len(set(results1.keys())&set(results2.keys())) == 0, f'Found same subjects in both splits: {results1} \n and \n {results2}'
       #assert len(results1) == len(results2), f'Error in grouping {results1} and {results2}'
 
-      # for key, value in results1:
-      #   if abs(results1[key] - results2[key]) > 2:
-      #     print(results
-          
+      if counter%100 == 0:
+        print(results1)
+        print('\n')
+        print(results2)
+        print('-'*20)
+        print()
 
 
 def inspect_subjects():

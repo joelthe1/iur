@@ -144,7 +144,7 @@ def create_subject_based_split(df, num_splits=2):
   re_re = re.compile(r'\bre\b:?')
 
   history = defaultdict(list)
-  for sender, split in df.groupby('from'):
+  for sender, split in tqdm(df.groupby('from')):
     # handle case where the
     # sender is invalid
     if sender == '<>':
@@ -185,22 +185,19 @@ def create_subject_based_split(df, num_splits=2):
     counter = 0
     while len(sender_meta) > 0:
       primary_item = sender_meta.pop()
+      counter += 1
 
       if counter%2 == 0:
         split2.add(primary_item)
       else:
         split1.add(primary_item)
-      counter += 1
 
-      # split1.add(primary_item)
       for item in sender_meta:
         if (1 - levenshtein(primary_item[2], item[2])/max(len(primary_item[2]), len(item[2]))) >= 0.75:
-        # if .partial_ratio(primary_item[2], item[2]) >= 80:
           if counter%2 == 0:
             split2.add(item)
           else:
             split1.add(item)
-          counter += 1
       
       sender_meta -= split1
       sender_meta -= split2
@@ -215,16 +212,30 @@ def create_subject_based_split(df, num_splits=2):
   # TODO: Handle case when there are not enough (`min_episode_length`)
   # messages in each split. Probably randomly splitting them would be 
   # good enough. Should display a count of how many were split in such a way.
-    
+  counter_in = 0
+  counter_out = 0
 
-  # Write out into `num_splits` number of files
-  with open(f'{args.output_prefix}_0.ids', 'w') as history_file:
-    for value in split_ids[0]:
-      history_file.write(' '.join([str(num) for num in value]) + '\n')
+  with open(f'{args.output_prefix}_0.ids', 'w') as history_file_0, open(f'{args.output_prefix}_1.ids', 'w') as history_file_1:
+    for ids0, ids1 in zip(split_ids[0], split_ids[1]):
+      if len(ids0) >= args.min_episode_length and \
+         len(ids1) >= args.min_episode_length:
+        history_file_0.write(' '.join([str(num) for num in ids0]) + '\n')
+        history_file_1.write(' '.join([str(num) for num in ids1]) + '\n')
+        counter_in += 1
+      else:
+        counter_out += 1
 
-  with open(f'{args.output_prefix}_1.ids', 'w') as history_file:
-    for value in split_ids[1]:
-      history_file.write(' '.join([str(num) for num in value]) + '\n')
+  logging.info(f'Found {counter_in} authors with enough unique splits and {counter_out} without.')
+
+
+  # # Write out into `num_splits` number of files
+  # with open(f'{args.output_prefix}_0.ids', 'w') as history_file:
+  #   for value in split_ids[0]:
+  #     history_file.write(' '.join([str(num) for num in value]) + '\n')
+
+  # with open(f'{args.output_prefix}_1.ids', 'w') as history_file:
+  #   for value in split_ids[1]:
+  #     history_file.write(' '.join([str(num) for num in value]) + '\n')
 
   logging.info(f'Found total {sender_count} senders and kept {sender_count - skipped_sender_count} out of them (skipped {skipped_sender_count} due to not having at least {2*args.min_episode_length} messages sent by them).')
 
