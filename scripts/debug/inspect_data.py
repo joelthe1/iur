@@ -38,39 +38,43 @@ def inspect_splits():
 
   with open('data/avacado/exp_20210809_1/sender_history_split_0.ids') as s0, open('data/avacado/exp_20210809_1/sender_history_split_1.ids') as s1:
     counter = 0
+    fw_counter = 0
     for line0, line1 in zip(s0, s1):
-      counter += 1
       from_set = set()
       results1 = Counter()
       results2 = Counter()
       for s in line0.split():
+        counter += 1
         from_set.add(df.iloc[int(s)]['from'])
         results1[df.iloc[int(s)]['subject']] += 1
 
       for s in line1.split():
+        counter += 1
         from_set.add(df.iloc[int(s)]['from'])
         results2[df.iloc[int(s)]['subject']] += 1
 
       # if len(line0.split()) < 16 or len(line1.split()) < 16:
-      if counter == 1000:
-        print(counter)
-        print(from_set)
-        print(results1)
-        print(results2)
-        print('\n\n')
-        break
 
       assert len(from_set) == 1, f'Error in grouping {from_set}'
-      assert len(set(results1.keys())&set(results2.keys())) == 0, f'Found same subjects in both splits: {results1} \n and \n {results2}'
+      # assert len(set(results1.keys())&set(results2.keys())) == 0, f'Found same subjects in both splits: {results1} \n and \n {results2}'
       #assert len(results1) == len(results2), f'Error in grouping {results1} and {results2}'
 
-      if counter%100 == 0:
-        print(results1)
-        print('\n')
-        print(results2)
-        print('-'*20)
-        print()
+      # if counter%100 == 0:
+      #   print(results1)
+      #   print('\n')
+      #   print(results2)
+      #   print('-'*20)
+      #   print()
 
+      for key, value in results1.items():
+        if key.strip() and key.strip().lower().startswith('fw'):
+          fw_counter += value
+
+      for key, value in results2.items():
+        if key.strip() and key.strip().lower().startswith('fw'):
+          fw_counter += value
+
+    print(f'Found {fw_counter} messages starting with `fw` out of {counter} total messages.')
 
 def inspect_subjects():
   df = pd.read_pickle(args.df_path)

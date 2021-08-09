@@ -165,6 +165,9 @@ def create_subject_based_split(df, num_splits=2):
 
       if len(subject.strip()) == 0:
         continue
+      elif subject.strip().lower().startswith('fw'):
+        continue
+
       history[sender].append((idx, time_sent, subject))
 
   split_ids = defaultdict(list)
