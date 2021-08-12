@@ -206,8 +206,11 @@ def create_subject_based_split(df, num_splits=2):
       sender_meta -= split2
 
     # Split 2-way the idx
-    split_ids[0].append([s[0] for s in split1])
-    split_ids[1].append([s[0] for s in split2])
+    if len(split1)>0 and len(split2)>0:
+      split_ids[0].append([split1.pop()[0]]*args.min_episode_length)
+      split_ids[1].append([split2.pop()[0]]*args.min_episode_length)
+    else:
+      continue
 
   # check_split_ids(split_ids, df)
   assert len(split_ids[0]) == len(split_ids[1]), 'Error while splitting the data!'

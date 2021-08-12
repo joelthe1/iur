@@ -17,6 +17,8 @@ import numpy as np
 from sklearn.metrics import pairwise_distances
 from six.moves import xrange
 
+import time
+
 
 def ranking(query_vectors, query_authors, target_vectors,
             target_authors, metric='cosine', distances=None,
@@ -48,6 +50,9 @@ def ranking(query_vectors, query_authors, target_vectors,
         D = distances
     else:
         D = pairwise_distances(query_vectors, Y=target_vectors, metric=metric, n_jobs=n_jobs)
+
+    # Save distances for subsequent visualization
+    np.save(f'/usr/local/src/iur/output/dist-{int(time.time())}', D)
 
     # Compute rank
     num_queries = query_authors.shape[0]
