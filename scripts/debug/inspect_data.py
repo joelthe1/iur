@@ -6,6 +6,9 @@ from datetime import datetime
 from operator import itemgetter
 from collections import Counter
 
+import pickle
+import random
+
 from absl import flags
 from absl import app
 from absl import logging
@@ -85,14 +88,46 @@ def inspect_subjects():
   # print(df['subject'].unique().shape)
 
 
+def inspect_authors():
+  df = pd.read_pickle(args.df_path)
+  logging.info(df)
+  # print(df.iloc[352790])
+
+  # with open('/usr/local/src/iur/data/avacado/exp_20210809_2/authors.pickle', 'rb') as f:
+  #   authors_map = pickle.load(f)
+  #   #print(authors_map)
+
+  with open('/usr/local/src/iur/data/avacado/exp_20210809_2/sender_history_split_0.ids') as split_ids_0_f, open('/usr/local/src/iur/data/avacado/exp_20210809_2/sender_history_split_1.ids') as split_ids_1_f:
+    for author_idx, (line0, line1) in enumerate(zip(split_ids_0_f, split_ids_1_f)):
+
+      if author_idx != 6:
+        continue
+      
+      line0 = [int(x) for x in line0.split()]
+      line1 = [int(x) for x in line1.split()]
+      
+      for idx0, idx1 in zip(random.sample(line0, 3), random.sample(line1, 3)):
+        print(df.iloc[idx0]['body'])
+        print()
+        print('-'*100)
+        input()
+        print(df.iloc[idx1]['body'])
+        print()
+        print('-'*100)
+        input()
+
+      print()
+      print('='*100)      
+
 def main(argv):
   #logging.info(f"Inspecting DF {args.df_path}")
   #inspect_jsonl('/usr/local/src/iur/data/avacado/avacado-dataset-split-0.jsonl')
   #inspect_jsonl('/usr/local/src/iur/data/avacado/avacado-dataset-split-1.jsonl')
   #inspect_df()
   
-  inspect_splits()
+  # inspect_splits()
   # inspect_subjects()
+  inspect_authors()
 
 if __name__ == "__main__":
   app.run(main)
