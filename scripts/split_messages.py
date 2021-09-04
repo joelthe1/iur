@@ -10,7 +10,6 @@ import cProfile
 import pstats
 from functools import wraps
 
-from fuzzywuzzy import fuzz
 from polyleven import levenshtein
 
 from email.utils import parsedate_to_datetime
@@ -206,11 +205,8 @@ def create_subject_based_split(df, num_splits=2):
       sender_meta -= split2
 
     # Split 2-way the idx
-    if len(split1)>0 and len(split2)>0:
-      split_ids[0].append([split1.pop()[0]]*args.min_episode_length)
-      split_ids[1].append([split2.pop()[0]]*args.min_episode_length)
-    else:
-      continue
+    split_ids[0].append([s[0] for s in split1])
+    split_ids[1].append([s[0] for s in split2])
 
   # check_split_ids(split_ids, df)
   assert len(split_ids[0]) == len(split_ids[1]), 'Error while splitting the data!'
@@ -231,7 +227,7 @@ def create_subject_based_split(df, num_splits=2):
       else:
         counter_out += 1
 
-  logging.info(f'Found {counter_in} authors with enough unique splits and {counter_out} without.')
+  logging.info(f'Found {counter_in} authors with at least {args.min_episode_length} unique messages and {counter_out} without.')
 
 
   # # Write out into `num_splits` number of files
