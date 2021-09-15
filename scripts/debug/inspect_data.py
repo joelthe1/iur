@@ -65,7 +65,7 @@ def inspect_splits():
   # print(df.loc[303744])
   # return
 
-  with open('data/avacado/exp_20210825_1/curated_history_0.ids') as s0, open('data/avacado/exp_20210825_1/curated_history_1.ids') as s1:
+  with open('data/avacado/exp_20210903_4/sender_history_split_0.ids') as s0, open('data/avacado/exp_20210903_4/sender_history_split_1.ids') as s1:
     counter = 0
 
     fw_counter = 0
@@ -74,27 +74,46 @@ def inspect_splits():
       results1 = Counter()
       results2 = Counter()
       len_map = {}
-      for s in line0.split():
+
+      counter_0 = 0
+      for s in line0.strip().split():
         counter += 1
+        counter_0 += 1
         from_set.add(df.loc[int(s)]['from'])
         results1[df.loc[int(s)]['subject']] += 1
+        if s in len_map:
+          print(s)
+          print('already there')
         len_map[s] = len(df.loc[int(s)]['body'].split())
 
-      for s in line1.split():
+      counter_1 = 0
+      for s in line1.strip().split():
         counter += 1
+        counter_1 += 1
         from_set.add(df.loc[int(s)]['from'])
         results2[df.loc[int(s)]['subject']] += 1
+        if s in len_map:
+          print(s)
+          print('already there')
         len_map[s] = len(df.loc[int(s)]['body'].split())
       
       # print(len_map)
       # print(from_set)
-      print(f'{from_set.pop()}: {len([v for v in len_map.values() if v<64])}/{len(len_map)}')
+      # print(f'{from_set.pop()}: {len([v for v in len_map.values() if v<64])}/{len(len_map)}')
+      if len(len_map) < 32:
+        print(from_set)
+        print(len_map)
 
       # print(from_set)
+      # print(f'split_0: {counter_0} split_1: {counter_1}')
+      # if counter_1==16 and counter_0==16:
+      #   print(results1)
+      #   print('#'*5)
+      #   print(results2)
       # print(results1.keys())
       # print(results2.keys())
       #print()
-      # assert len(from_set) == 1, f'Error in grouping {from_set}'
+      assert len(from_set) == 1, f'Error in grouping {from_set}'
       assert len(set(results1.keys())&set(results2.keys())) == 0, f'Found same subjects in both splits: {results1} \n and \n {results2}'
       # assert len(results1) == len(results2), f'Error in grouping {results1} and {results2}'
 
@@ -155,68 +174,37 @@ def inspect_authors():
       print()
       print('='*100)      
 
+
 def curate_splits():
   df = pd.read_pickle(args.df_path)
   logging.info(df)
 
   # with open('/usr/local/src/iur/data/avacado/exp_20210809_2/authors.pickle', 'rb') as f:
   #   authors_map = pickle.load(f)
-  #   #print(authors_map)
+  #   print(authors_map)
 
-  with open('/usr/local/src/iur/data/avacado/exp_20210825_1/curated_history_0.ids') as split_ids_0_f, open('/usr/local/src/iur/data/avacado/exp_20210825_1/curated_history_1.ids') as split_ids_1_f:
-    for i0 in split_ids_0_f:
-      print('new row\n')
-      for val in i0.strip().split():
-        print(df.loc[int(val)]['from'])
+  selected_senders = [
+    'steve.schramm@avocadoit.com',
+    'awong@avocadoit.com'
+  ]
 
-    for i1 in split_ids_1_f:
-      print('new row\n')
-      for val in i1.strip().split():
-        print(df.loc[int(val)]['from'])
+  for sender, split in df.groupby('from'):
+    # handle case where the
+    # sender is invalid
+    if sender not in selected_senders:
+      continue
+    
+    counter = 0
+    for idx, row in split.iterrows():
+      if len(row['body'].strip().split()) < 64:
+        continue
 
-    # for author_id in random_authors:
-    #   record_idx = int(split_0[author_id].strip().split()[0])
-    #   print(df.loc[record_idx]['from'])
-
+      counter+=1
+    print(f'{sender}: {counter}')
+    
 
 selected_senders = [
-'arun.kalasapudi@avocadoit.com',
-'haider.kazmi@avocadoit.com',
-'kant.hung@avocadoit.com',
-'akarwal@avocadoit.com',
-'miyuki.goldman@avocadoit.com',
-'asun@avocadoit.com',
 ]
-
-
-
-
-
-# 'dean.fulton@avocadoit.com',
-# 'rvuong@avocadoit.com',
-# 'traj@avocadoit.com',
-# 'nmehta@avocadoit.com',
-# 'jackie.valle@avocadoit.com',
-# 'kchancellor@avocadoit.com',
-# 'mkadanoff@avocadoit.com',
-# 'dave.truman@avocadoit.com',
-# 'madhava.gullapalli@avocadoit.com',
-# 'james.larrue-baulch@avocadoit.com',
-# 'kkerr@avocadoit.com',
-# 'piyer@avocadoit.com',
-# 'sswanson@avocadoit.com',
-# 'darshan.patel@avocadoit.com',
-# 'john.armbruster@avocadoit.com',
-# 'speshkar@avocadoit.com',
-# 'sreddy@avocadoit.com',
-# 'mkadanoff@avocadoit.com',
-# 'dswanson@avocadoit.com',
-# 'ravikumar.palanisamy@avocadoit.com',
-# 'sweller@avocadoit.com',
-# 'rajeev@avocadoit.com'
-#]
-
-# 'avyas@avocadoit.com',
 
 def create_subject_based_curated_split():
   df = pd.read_pickle(args.df_path)
@@ -234,8 +222,9 @@ def create_subject_based_curated_split():
     if sender not in selected_senders:
       continue
 
-    # for idx, row in split.iterrows():
-    #   if row['body']
+    for idx, row in split.iterrows():
+      if len(row['body'].strip().split()) < 64:
+        continue
 
       try:
         time_sent = parsedate_to_datetime(row['date'])
@@ -302,15 +291,37 @@ def create_subject_based_curated_split():
   counter_in = 0
   keep = 'n'
   with open(f'{args.output_prefix}_0.ids.run', 'w') as history_file_0, open(f'{args.output_prefix}_1.ids.run', 'w') as history_file_1:
+    # curated_ids = {}
+    # for line0, line1 in zip(split_ids_0_f, split_ids_1_f):
+    #   line0_ids = [int(value) for value in line0.strip().split()]
+    #   line1_ids = [int(value) for value in line1.strip().split()]
+    #   curated_ids[df.loc[line0_ids[0]]['from']] = line0_ids + line1_ids
+
     for ids0, ids1 in zip(split_ids[0], split_ids[1]):
       if len(ids0) >= args.min_episode_length and \
          len(ids1) >= args.min_episode_length:
         
         print('*'*20)
+        print(f"Processing {df.loc[ids0[0]]['from']}")
+        print(f'Has {len(ids0)} entries in split0')
+        print(f'Has {len(ids1)} entries in split1')
+        # print(curated_ids[df.loc[ids0[0]]['from']])
         print('Save query IDs')
         print('*'*20)
+        
+        # if len(curated_ids[df.loc[ids0[0]]['from']]) >= 32:
+        #   print('Has enough')
+        #   continue
+
         counter_in = 0
+        # for num in ids0:
+          # if num in curated_ids[df.loc[ids0[0]]['from']]:
+          #   history_file_0.write(str(num) + ' ')
+          #   counter_in += 1
+
         for num in ids0:
+          # if num in curated_ids[df.loc[ids0[0]]['from']]:
+          #   continue
 
           if counter_in > 15:
             break
@@ -330,10 +341,19 @@ def create_subject_based_curated_split():
         history_file_0.flush()
         
         print('*'*20)
+        print(f"Processing {df.loc[ids1[0]]['from']}")
         print('Save target IDs')
         print('*'*20)
+
         counter_in = 0
+        # for num in ids1:
+          # if num in curated_ids[df.loc[ids1[0]]['from']]:
+          #   history_file_1.write(str(num) + ' ')
+          #   counter_in += 1
+
         for num in ids1:
+          # if num in curated_ids[df.loc[ids1[0]]['from']]:
+          #   continue
 
           if counter_in > 15:
             break
