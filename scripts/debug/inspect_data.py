@@ -15,6 +15,7 @@ from pytz import utc
 import pickle
 import random
 import re
+import os
 
 from absl import flags
 from absl import app
@@ -65,64 +66,114 @@ def inspect_splits():
   # print(df.loc[303744])
   # return
 
-  with open('data/avacado/exp_20210903_4/sender_history_split_0.ids') as s0, open('data/avacado/exp_20210903_4/sender_history_split_1.ids') as s1:
+  with open('data/2022-eval-summer-org-vtnatsec/sender_history_split_temp_0.ids') as s0, open('data/2022-eval-summer-org-vtnatsec/sender_history_split_temp_1.ids') as s1:
     counter = 0
+    dir_counter = -1
+    file_counter = 0
 
-    fw_counter = 0
-    for line0, line1 in zip(s0, s1):
-      from_set = set()
-      results1 = Counter()
-      results2 = Counter()
-      len_map = {}
+    with open('/tmp/emails/mapping.json', 'w') as mapping_file:
 
-      counter_0 = 0
-      for s in line0.strip().split():
-        counter += 1
-        counter_0 += 1
-        from_set.add(df.loc[int(s)]['from'])
-        results1[df.loc[int(s)]['subject']] += 1
-        if s in len_map:
-          print(s)
-          print('already there')
-        len_map[s] = len(df.loc[int(s)]['body'].split())
+      for line0, line1 in zip(s0, s1):
+        from_address = None
+        dir_counter += 1
+        os.makedirs(f'/tmp/emails/{dir_counter}', exist_ok=True)
+        for s in line0.strip().split():
+          file_counter += 1
+  
+          with open(f'/tmp/emails/{dir_counter}/{file_counter}.txt', 'w') as f:
+            f.write(f"From: {df.loc[int(s)]['from']}\n")
+            f.write(f"Date: {df.loc[int(s)]['date']}\n")
+            f.write(f"Subject: {df.loc[int(s)]['subject']}\n")
+            f.write(df.loc[int(s)]['body'])
+            
+            from_address = df.loc[int(s)]['from']
 
-      counter_1 = 0
-      for s in line1.strip().split():
-        counter += 1
-        counter_1 += 1
-        from_set.add(df.loc[int(s)]['from'])
-        results2[df.loc[int(s)]['subject']] += 1
-        if s in len_map:
-          print(s)
-          print('already there')
-        len_map[s] = len(df.loc[int(s)]['body'].split())
+        for s in line1.strip().split():
+          file_counter += 1
+  
+          with open(f'/tmp/emails/{dir_counter}/{file_counter}.txt', 'w') as f:
+            f.write(f"From: {df.loc[int(s)]['from']}\n")
+            f.write(f"Date: {df.loc[int(s)]['date']}\n")
+            f.write(f"Subject: {df.loc[int(s)]['subject']}\n")
+            f.write(df.loc[int(s)]['body'])
+
+        mapping_file.write(f'{dir_counter}  {from_address}\n')
+
+
+    # # Sanity check if splits on both sides have the same 'from'
+    # for line0, line1 in zip(s0, s1):
+    #   from_set = set()
+    #   print(line0)
+    #   for entry in line0.strip().split():
+    #     # print(entry, df.loc[int(entry)]['from'])
+    #     from_set.add(df.loc[int(entry)]['from'])
+
+    #   print(line1)
+    #   for entry in line1.strip().split():
+    #     # print(entry, df.loc[int(entry)]['from'])
+    #     from_set.add(df.loc[int(entry)]['from'])
+        
+    #   assert len(from_set) == 1, f'Error in grouping {from_set}'
+    #   print('#'*15)
+    #   print()
+
+
+    # fw_counter = 0
+    # for line0, line1 in zip(s0, s1):
+    #   from_set = set()
+    #   results1 = Counter()
+    #   results2 = Counter()
+    #   len_map = {}
+
+    #   counter_0 = 0
+    #   for s in line0.strip().split():
+    #     counter += 1
+    #     counter_0 += 1
+    #     from_set.add(df.loc[int(s)]['from'])
+    #     results1[df.loc[int(s)]['subject']] += 1
+    #     if s in len_map:
+    #       print(s)
+    #       print('already there')
+    #     len_map[s] = len(df.loc[int(s)]['body'].split())
+        
+
+    #   counter_1 = 0
+    #   for s in line1.strip().split():
+    #     counter += 1
+    #     counter_1 += 1
+    #     from_set.add(df.loc[int(s)]['from'])
+    #     results2[df.loc[int(s)]['subject']] += 1
+    #     if s in len_map:
+    #       print(s)
+    #       print('already there')
+    #     len_map[s] = len(df.loc[int(s)]['body'].split())
       
-      # print(len_map)
-      # print(from_set)
-      # print(f'{from_set.pop()}: {len([v for v in len_map.values() if v<64])}/{len(len_map)}')
-      if len(len_map) < 32:
-        print(from_set)
-        print(len_map)
+    #   print(len_map)
+    #   print(from_set)
+    #   print(f'{from_set.pop()}: {len([v for v in len_map.values() if v<64])}/{len(len_map)}')
+    #   if len(len_map) < 32:
+    #     print(from_set)
+    #     print(len_map)
 
-      # print(from_set)
-      # print(f'split_0: {counter_0} split_1: {counter_1}')
-      # if counter_1==16 and counter_0==16:
-      #   print(results1)
-      #   print('#'*5)
-      #   print(results2)
-      # print(results1.keys())
-      # print(results2.keys())
-      #print()
-      assert len(from_set) == 1, f'Error in grouping {from_set}'
-      assert len(set(results1.keys())&set(results2.keys())) == 0, f'Found same subjects in both splits: {results1} \n and \n {results2}'
-      # assert len(results1) == len(results2), f'Error in grouping {results1} and {results2}'
+    #   print(from_set)
+    #   print(f'split_0: {counter_0} split_1: {counter_1}')
+    #   if counter_1==16 and counter_0==16:
+    #     print(results1)
+    #     print('#'*5)
+    #     print(results2)
+    #   print(results1.keys())
+    #   print(results2.keys())
+    #   print()
+    #   assert len(from_set) == 1, f'Error in grouping {from_set}'
+    #   assert len(set(results1.keys())&set(results2.keys())) == 0, f'Found same subjects in both splits: {results1} \n and \n {results2}'
+    #   assert len(results1) == len(results2), f'Error in grouping {results1} and {results2}'
 
-      # if counter%100 == 0:
-      #   print(results1)
-      #   print('\n')
-      #   print(results2)
-      #   print('-'*20)
-      #   print()
+    #   if counter%100 == 0:
+    #     print(results1)
+    #     print('\n')
+    #     print(results2)
+    #     print('-'*20)
+    #     print()
 
     #   for key, value in results1.items():
     #     if key.strip() and key.strip().lower().startswith('fw'):

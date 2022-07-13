@@ -26,9 +26,10 @@ args = flags.FLAGS
 flags.DEFINE_string('df', None, 'Path to pickled DataFrame')
 flags.DEFINE_string('output_prefix', '.', 'Prefix to use for the split out ID files')
 flags.DEFINE_integer('min_episode_length', 2, 'The minimum number of messages (aka episodes) present per author per split so as to be considered for splitting.')
+flags.DEFINE_list('sender_order', None, 'Order of sender email IDs to create the .ids file in. Comma separated email IDs. Only senders in this list will be considered. Ignores missing email IDs.')
 flags.mark_flags_as_required(['df'])
 
-def create_timebased_sender_history(df, num_splits=2):
+def create_timebased_sender_history(df, num_splits=2, sender_order=None):
   '''Read the DataFrame and create the history'''
   # Currently only supports 2-way splits
   assert num_splits == 2, 'Incompatible value for num_splits. Currently only supports 2-way splits'
@@ -50,23 +51,47 @@ def create_timebased_sender_history(df, num_splits=2):
   split_ids = defaultdict(list)
   sender_count = 0
   skipped_sender_count = 0
-  for sender, sent_times in history.items():
-    sorted_idx = []
-    sender_count += 1
+  if args.sender_order:
+    logging.info('Using the specified set of ordered senders only.')
+    for sender_entry in sender_order:
+      sender = sender_entry
+      sent_times = history[sender]
 
-    # Skip cases where there are fewer
-    # than `min_episode_length` messages
-    if len(sent_times) < 2*args.min_episode_length:
-      skipped_sender_count += 1
-      continue
+      sorted_idx = []
+      sender_count += 1
+  
+      # Skip cases where there are fewer
+      # than `min_episode_length` messages
+      if len(sent_times) < 2*args.min_episode_length:
+        skipped_sender_count += 1
+        continue
+  
+      for entry in sorted(sent_times, key=itemgetter(1)):
+        sorted_idx.append(entry[0])
+  
+      # Split 2-way the idx
+      split_idx = math.trunc(len(sorted_idx)/2)
+      split_ids[0].append((sorted_idx[:split_idx]))
+      split_ids[1].append((sorted_idx[split_idx:]))
 
-    for entry in sorted(sent_times, key=itemgetter(1)):
-      sorted_idx.append(entry[0])
-
-    # Split 2-way the idx
-    split_idx = math.trunc(len(sorted_idx)/2)
-    split_ids[0].append((sorted_idx[:split_idx]))
-    split_ids[1].append((sorted_idx[split_idx:]))
+  else:
+    for sender, sent_times in history.items():
+      sorted_idx = []
+      sender_count += 1
+  
+      # Skip cases where there are fewer
+      # than `min_episode_length` messages
+      if len(sent_times) < 2*args.min_episode_length:
+        skipped_sender_count += 1
+        continue
+  
+      for entry in sorted(sent_times, key=itemgetter(1)):
+        sorted_idx.append(entry[0])
+  
+      # Split 2-way the idx
+      split_idx = math.trunc(len(sorted_idx)/2)
+      split_ids[0].append((sorted_idx[:split_idx]))
+      split_ids[1].append((sorted_idx[split_idx:]))
 
   assert len(split_ids[0]) == len(split_ids[1]), 'Error while splitting the data!'
 
@@ -252,7 +277,8 @@ def main(argv):
   logging.info(f"Reading pickled DataFrame file found at {args.df}")
   df = pd.read_pickle(args.df)
 
-  create_subject_based_split(df)
+  create_timebased_sender_history(df, sender_order=args.sender_order)
+  # create_subject_based_split(df)
   logging.info(f"Done. See files {args.output_prefix}_0.ids and {args.output_prefix}_1.ids")
 
 if __name__ == "__main__":
